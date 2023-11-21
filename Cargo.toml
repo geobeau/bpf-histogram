@@ -1,2 +1,2 @@
 [workspace]
-members = ["histogram", "histogram-ebpf"]
+members = ["histogram", "histogram-ebpf", "histogram-common"]

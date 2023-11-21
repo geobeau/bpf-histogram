@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 aya-bpf = { git = "https://github.com/aya-rs/aya"}
+histogram-common = { path = "../histogram-common" }
