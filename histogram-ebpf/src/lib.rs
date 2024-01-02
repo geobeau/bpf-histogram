@@ -1,7 +1,6 @@
 #![no_std]
 
 use aya_bpf::maps::PerCpuHashMap;
-use histogram_common::Key;
 
 #[inline(always)]
 fn bpf_log2(mut v: u64) -> u64 {
@@ -22,6 +21,12 @@ fn bpf_log2(mut v: u64) -> u64 {
     r
 }
 
+#[derive(Copy, Clone)]
+#[repr(C, packed)]
+pub struct Key<T: Sized> {
+    pub bucket: u32,
+    pub sub_key: T,
+}
 
 pub struct BpfHistogram<T> {
     map: PerCpuHashMap<Key<T>, u64>,
