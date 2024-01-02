@@ -40,7 +40,6 @@ impl<T: Pod + Eq + PartialEq + Hash> Histogram<T> {
 
     pub fn export_to_le_histogram(&self) -> HashMap<T, Vec<(u64, u64)>> {
         let mut per_key_histogram: HashMap<T, Vec<(u64, u64)>> = HashMap::new();
-        self.map.iter().for_each(|x| println!("{:?}", x.unwrap().1));
         self.map
             .iter()
             .filter_map(|row| match row {
