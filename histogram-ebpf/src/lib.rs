@@ -1,6 +1,6 @@
 #![no_std]
 
-use aya_bpf::maps::PerCpuHashMap;
+use aya_ebpf::maps::PerCpuHashMap;
 
 #[inline(always)]
 fn bpf_log2(mut v: u64) -> u64 {
