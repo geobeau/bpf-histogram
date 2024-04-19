@@ -5,7 +5,8 @@ use aya::{
 use std::{collections::BTreeMap, collections::HashMap, hash::Hash, sync::Arc};
 
 use prometheus::{
-    core::{AtomicI64, Collector, Desc, GenericGaugeVec}, proto, IntGaugeVec, Opts
+    core::{AtomicI64, Collector, Desc, GenericGaugeVec},
+    proto, IntGaugeVec, Opts,
 };
 
 pub trait Key: Sized + Pod + Eq + PartialEq + Hash + Send + Sync {
@@ -34,7 +35,6 @@ pub struct Histogram<T: Key> {
     buckets_metric: GenericGaugeVec<AtomicI64>,
 }
 
-
 impl<T: Key> Collector for Histogram<T> {
     fn desc(&self) -> Vec<&Desc> {
         self.buckets_metric.desc()
@@ -52,39 +52,41 @@ impl<T: Key> Collector for Histogram<T> {
                 Err(_) => None,
             })
             .for_each(|(key, values)| {
-                let entry = sorted_bucket_index.entry(key.sub_key).or_insert_with(|| BTreeMap::new());
+                let entry = sorted_bucket_index.entry(key.sub_key).or_default();
                 let total = values.iter().sum::<u64>();
                 entry.insert(key.bucket, total);
             });
 
         // Use the sorted_bucket_index to accumulate total to form `le` buckets
-        sorted_bucket_index
-            .iter()
-            .for_each(|(key, bucket_map)| {
-                let label_values = key.get_label_values();
+        sorted_bucket_index.iter().for_each(|(key, bucket_map)| {
+            let label_values = key.get_label_values();
 
-                let mut total = 0;
-                bucket_map.iter().for_each(|(bucket, value)| {
-                    total += value;
-                    // buckets are exposed as the exponant of a power of 2
-                    let expanded_bucket = ((2 as u64).pow(*bucket)).to_string();
-                    let mut str_label_values: Vec<&str> = label_values.iter().map(|x| x.as_str()).collect();
-                    str_label_values.push(expanded_bucket.as_str());
+            let mut total = 0;
+            bucket_map.iter().for_each(|(bucket, value)| {
+                total += value;
+                // buckets are exposed as the exponant of a power of 2
+                let expanded_bucket = (2_u64.pow(*bucket)).to_string();
+                let mut str_label_values: Vec<&str> =
+                    label_values.iter().map(|x| x.as_str()).collect();
+                str_label_values.push(expanded_bucket.as_str());
 
-                    self.buckets_metric
-                        .with_label_values(&str_label_values)
-                        .set(total as i64)
-                });
+                self.buckets_metric
+                    .with_label_values(&str_label_values)
+                    .set(total as i64)
             });
+        });
         self.buckets_metric.collect()
     }
 }
 
 impl<T: Key> Histogram<T> {
-    pub fn new_from_map(map: PerCpuHashMap<MapData, KeyWrapper<T>, u64>, opts: Opts) -> Histogram<T> {
+    pub fn new_from_map(
+        map: PerCpuHashMap<MapData, KeyWrapper<T>, u64>,
+        opts: Opts,
+    ) -> Histogram<T> {
         let label_keys = T::get_label_keys();
         let mut str_label_keys: Vec<&str> = label_keys.iter().map(|x| x.as_str()).collect();
-        str_label_keys.push("le");  // le contains the lower/equal buckets for histogram
+        str_label_keys.push("le"); // le contains the lower/equal buckets for histogram
 
         let buckets_metric = IntGaugeVec::new(opts, &str_label_keys).unwrap();
         Histogram {

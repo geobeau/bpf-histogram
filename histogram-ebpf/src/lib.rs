@@ -27,9 +27,9 @@ fn bpf_log2l(v: u64) -> u32 {
     let hi: u32 = (v >> 32) as u32;
 
     if hi != 0 {
-        return bpf_log2(hi) + 32 + 1;
+        bpf_log2(hi) + 32 + 1
     } else {
-        return bpf_log2(lo) + 1;
+        bpf_log2(lo) + 1
     }
 }
 
@@ -54,10 +54,7 @@ impl<T> BpfHistogram<T> {
     #[inline(always)]
     pub fn observe(&self, sub_key: T, value: u64) {
         let bucket = bpf_log2l(value);
-        let key = Key {
-            bucket,
-            sub_key,
-        };
+        let key = Key { bucket, sub_key };
 
         unsafe {
             let counter = match self.map.get(&key) {
