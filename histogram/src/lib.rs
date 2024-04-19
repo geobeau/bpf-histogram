@@ -31,7 +31,6 @@ unsafe impl<T: Key> Pod for KeyWrapper<T> {}
 #[derive(Clone)]
 pub struct Histogram<T: Key> {
     map: Arc<PerCpuHashMap<MapData, KeyWrapper<T>, u64>>,
-    // phantom: PhantomData<T>,
     buckets_metric: GenericGaugeVec<AtomicI64>,
 }
 
@@ -82,17 +81,15 @@ impl<T: Key> Collector for Histogram<T> {
 }
 
 impl<T: Key> Histogram<T> {
-    pub fn new_from_map(map: PerCpuHashMap<MapData, KeyWrapper<T>, u64>) -> Histogram<T> {
-        let bucket_opts = Opts::new("test_latency", "test counter help");
+    pub fn new_from_map(map: PerCpuHashMap<MapData, KeyWrapper<T>, u64>, opts: Opts) -> Histogram<T> {
         let label_keys = T::get_label_keys();
         let mut str_label_keys: Vec<&str> = label_keys.iter().map(|x| x.as_str()).collect();
         str_label_keys.push("le");  // le contains the lower/equal buckets for histogram
 
-        let buckets_metric = IntGaugeVec::new(bucket_opts, &str_label_keys).unwrap();
+        let buckets_metric = IntGaugeVec::new(opts, &str_label_keys).unwrap();
         Histogram {
             map: Arc::from(map),
             buckets_metric,
-            // phantom: PhantomData,
         }
     }
 }
