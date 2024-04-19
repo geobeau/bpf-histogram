@@ -1,2 +1,2 @@
-# bpf-histogram
+# ebpf-histogram
 Provides helpers to use histogram on aya-rs
