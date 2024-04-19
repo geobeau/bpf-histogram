@@ -1,24 +1,36 @@
 #![no_std]
-
 use aya_ebpf::maps::PerCpuHashMap;
 
 #[inline(always)]
-fn bpf_log2(mut v: u64) -> u64 {
-    let mut r: u64;
-    let mut shift: u64;
-    r = ((v > 0xFFFF) as u64) << 4;
+fn bpf_log2(mut v: u32) -> u32 {
+    let mut r: u32;
+    let mut shift: u32;
+    r = ((v > 0xFFFF) as u32) << 4;
     v >>= r;
-    shift = ((v > 0xFF) as u64) << 3;
+    shift = ((v > 0xFF) as u32) << 3;
     v >>= shift;
     r |= shift;
-    shift = ((v > 0xF) as u64) << 2;
+    shift = ((v > 0xF) as u32) << 2;
     v >>= shift;
     r |= shift;
-    shift = ((v > 0x3) as u64) << 1;
+    shift = ((v > 0x3) as u32) << 1;
     v >>= shift;
     r |= shift;
     r |= v >> 1;
     r
+}
+
+/// Return the log2(v) ceiled
+/// It should match the equivalent function in BCC
+fn bpf_log2l(v: u64) -> u32 {
+    let lo: u32 = (v & 0xFFFFFFFF) as u32;
+    let hi: u32 = (v >> 32) as u32;
+
+    if hi != 0 {
+        return bpf_log2(hi) + 32 + 1;
+    } else {
+        return bpf_log2(lo) + 1;
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -41,9 +53,9 @@ impl<T> BpfHistogram<T> {
 
     #[inline(always)]
     pub fn observe(&self, sub_key: T, value: u64) {
-        let bucket = bpf_log2(value);
+        let bucket = bpf_log2l(value);
         let key = Key {
-            bucket: bucket as u32,
+            bucket,
             sub_key,
         };
 
@@ -54,5 +66,20 @@ impl<T> BpfHistogram<T> {
             };
             let _ = self.map.insert(&key, &counter, 0);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bpf_log2l;
+
+    #[test]
+    fn bpf_log2_works() {
+        assert_eq!(bpf_log2l(10), 4);
+        assert_eq!(bpf_log2l(10000000), 24);
+        assert_eq!(bpf_log2l(1000000000), 30);
+        assert_eq!(bpf_log2l(100000000000), 37);
+        assert_eq!(bpf_log2l(10000000000000), 44);
+        assert_eq!(bpf_log2l(2043866223362000), 51);
     }
 }
