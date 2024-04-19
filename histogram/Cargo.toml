@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 aya = { git = "https://github.com/aya-rs/aya"}
 histogram-common = { path = "../histogram-common" }
-# bytemuck = { version = "1.14.0", features = ["derive"]}
+prometheus = "0.13.3"

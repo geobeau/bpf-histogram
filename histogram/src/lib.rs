@@ -2,24 +2,31 @@ use aya::{
     maps::{MapData, PerCpuHashMap},
     Pod,
 };
-use std::hash::Hash;
+use std::{hash::Hash, sync::Arc};
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
 };
 
+use prometheus::{core::{Atomic, AtomicF64, Collector, Desc, GenericGauge, GenericGaugeVec}, proto, Encoder, Gauge, GaugeVec, Opts, Registry, TextEncoder};
+
+
+pub trait Key: Sized + Pod + Eq + PartialEq + Hash + Send + Sync {}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
-pub struct Key<T: Sized + Pod + Eq + PartialEq + Hash> {
+pub struct KeyWrapper<T: Sized + Pod + Eq + PartialEq + Hash + Send + Sync> {
     pub bucket: u32,
     pub sub_key: T,
 }
 
-unsafe impl<T: Sized + Pod + Eq + PartialEq + Hash> Pod for Key<T> {}
+unsafe impl<T: Sized + Pod + Eq + PartialEq + Hash + Send + Sync> Pod for KeyWrapper<T> {}
 
-pub struct Histogram<T: Pod + Eq + PartialEq + Hash> {
-    map: PerCpuHashMap<MapData, Key<T>, u64>,
-    phantom: PhantomData<T>,
+#[derive(Clone)]
+pub struct Histogram<T: Sized + Pod + Eq + PartialEq + Hash + Send + Sync> {
+    map: Arc<PerCpuHashMap<MapData, KeyWrapper<T>, u64>>,
+    // phantom: PhantomData<T>,
+    buckets_metric: GenericGaugeVec<AtomicF64>,
 }
 
 pub struct PerKeyHistogram {
@@ -30,16 +37,12 @@ impl PerKeyHistogram {
     pub fn new_from_map() {}
 }
 
-impl<T: Pod + Eq + PartialEq + Hash> Histogram<T> {
-    pub fn new_from_map(map: PerCpuHashMap<MapData, Key<T>, u64>) -> Histogram<T> {
-        Histogram {
-            map,
-            phantom: PhantomData,
-        }
+impl<T: Sized + Pod + Eq + PartialEq + Hash + Send + Sync> Collector for Histogram<T> {
+    fn desc(&self) -> Vec<&Desc> {
+        self.buckets_metric.desc()
     }
 
-    pub fn export_to_le_histogram(&self) -> HashMap<T, Vec<(u64, u64)>> {
-        let mut per_key_histogram: HashMap<T, Vec<(u64, u64)>> = HashMap::new();
+    fn collect(&self) -> Vec<proto::MetricFamily> {
         self.map
             .iter()
             .filter_map(|row| match row {
@@ -49,11 +52,20 @@ impl<T: Pod + Eq + PartialEq + Hash> Histogram<T> {
             .for_each(|(key, values)| {
                 println!("{:?}", values);
                 let total = values.iter().sum::<u64>();
-                per_key_histogram
-                    .entry(key.sub_key)
-                    .and_modify(|val| val.push((key.bucket.into(), total)))
-                    .or_insert(vec![(key.bucket.into(), total)]);
+                self.buckets_metric.with_label_values(&[key.bucket.to_string().as_str()]).set(total as f64)
             });
-        per_key_histogram
+        self.buckets_metric.collect()
+    }
+}
+
+impl<T: Sized + Pod + Eq + PartialEq + Hash + Send + Sync> Histogram<T> {
+    pub fn new_from_map(map: PerCpuHashMap<MapData, KeyWrapper<T>, u64>) -> Histogram<T> {
+        let bucket_opts = Opts::new("test_latency", "test counter help");
+        let buckets_metric = GaugeVec::new(bucket_opts, &["le"]).unwrap();
+        Histogram {
+            map: Arc::from(map),
+            buckets_metric,
+            // phantom: PhantomData,
+        }
     }
 }
