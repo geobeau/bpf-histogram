@@ -1,2 +1,4 @@
 # ebpf-histogram
-Provides helpers to use histogram on aya-rs
+
+Provides a library to create Prometheus histogram directly from ebpf data structures
+

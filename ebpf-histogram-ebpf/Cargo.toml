@@ -1,0 +1,13 @@
+[package]
+name = "ebpf-histogram-ebpf"
+version = "0.1.0"
+description = "The ebpf portion of ebpf-histogram. To build and export histogran from ebpf code"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+edition.workspace = true
+
+
+[dependencies]
+aya-ebpf = "0.1.0"

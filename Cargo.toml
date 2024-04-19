@@ -1,2 +1,11 @@
 [workspace]
-members = ["histogram", "histogram-ebpf", "histogram-common"]
+members = ["ebpf-histogram", "ebpf-histogram-ebpf"]
+resolver = "2"
+
+[workspace.package]
+authors = ["g.beausire"]
+license = "Apache-2.0"
+description = "library to create Prometheus histogram directly from ebpf data structures"
+repository = "https://github.com/geobeau/ebpf-histogram"
+homepage = "https://github.com/geobeau/ebpf-histogram"
+edition = "2021"
